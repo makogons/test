@@ -1,0 +1,15 @@
+<table>
+    <tr>
+        <th>ID</th>
+        <th>email</th>
+        <th>name</th>
+    </tr>
+    {% for user in users %}
+    <tr>
+        <td> {{ user.id }}</td>
+        <td><a href="/edit?id={{ user.id }}">{{ user.email }}</a></td>
+        <td> {{ user.name }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<a href="/create">Create user</a>

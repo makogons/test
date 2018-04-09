@@ -1,0 +1,12 @@
+{{ form_start(form) }}
+    {{ form_widget(form) }}
+    <select name="form[friends][]" multiple>
+        {% for user in users %}
+            {% if(not userId or user.id != userId) %}
+            <option value="{{ user.id }}"{% if(user.id in friends) %} selected{% endif %}>{{ user.email }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+    <br>
+    <input type="submit">
+{{ form_end(form) }}
