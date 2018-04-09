@@ -149,4 +149,36 @@ class UserController extends Controller
 
         return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => $friendIds, 'userId' => $userId]);
     }
+
+    public function delete()
+    {
+        $userId = Request::createFromGlobals()->get('id');
+
+        if (!$userId) {
+            throw new BadRequestHttpException('id must be specified!');
+        }
+        /**
+         * @var User $user
+         */
+        $user = $this->getDoctrine()->getRepository(User::class)->findOneBy(['id' => $userId]);
+
+        if (!$user) {
+            throw new NotFoundHttpException('User not found!');
+        }
+
+        foreach ($user->getFriends() as $friend) {
+            $keys = $user->getFriends()->getKeys();
+            foreach ($keys as $key) {
+                $user->getFriends()->remove($key);
+            }
+        }
+
+        $entityManager = $this->getDoctrine()->getManager();
+
+        $entityManager->remove($user);
+
+        $entityManager->flush();
+
+        return $this->redirect('/');
+    }
 }
