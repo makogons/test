@@ -166,14 +166,11 @@ class UserController extends Controller
             throw new NotFoundHttpException('User not found!');
         }
 
-        foreach ($user->getFriends() as $friend) {
-            $keys = $user->getFriends()->getKeys();
-            foreach ($keys as $key) {
-                $user->getFriends()->remove($key);
-            }
-        }
-
         $entityManager = $this->getDoctrine()->getManager();
+
+        $statement = $entityManager->getConnection()->prepare('DELETE FROM `friends` WHERE user_id = :user_id OR friend_user_id = :user_id');
+        $statement->bindValue('user_id', $user->getId());
+        $statement->execute();
 
         $entityManager->remove($user);
 
