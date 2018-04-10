@@ -11,6 +11,7 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 
 class UserController extends Controller
@@ -22,28 +23,35 @@ class UserController extends Controller
         return $this->render('index.twig', ['users' => $users]);
     }
 
-    public function create()
+    public function create(Request $request, ValidatorInterface $validator)
     {
         $formFactory = Forms::createFormFactory();
 
         $form = $formFactory->createBuilder()
             ->add('email', EmailType::class)
-            ->add('name', TextType::class)
+            ->add('name', TextType::class, ['attr' => ['minlength' => 3]])
             ->getForm();
 
-        $data = Request::createFromGlobals()->get('form');
+        $data = $request->get('form');
 
         if ($data) {
             $form->submit($data);
-            if (strlen($data['name']) < 3) {
-                $form->addError(new FormError('name is too short!'));
-                return $this->redirect('/create');
-            }
 
             if ($form->isValid()) {
                 $user = new User();
                 $user->setEmail($data['email']);
                 $user->setName($data['name']);
+
+                $errors = $validator->validate($user);
+
+                if (count($errors) > 0) {
+                    foreach ($errors as $error) {
+                        $form->addError(new FormError($error->getMessage()));
+                    }
+
+                    $users = $this->getDoctrine()->getRepository(User::class)->findAll();
+                    return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => [], 'userId' => null]);
+                }
 
                 $entityManager = $this->getDoctrine()->getManager();
 
@@ -61,20 +69,18 @@ class UserController extends Controller
                 return $this->redirect('/');
             }
 
-            $users = $this->getDoctrine()->getRepository(User::class)->findAll();
-            return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => [], 'userId' => null]);
         }
 
         $users = $this->getDoctrine()->getRepository(User::class)->findAll();
         return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => [], 'userId' => null]);
     }
 
-    public function edit()
+    public function edit(Request $request, ValidatorInterface $validator)
     {
         $formFactory = Forms::createFormFactory();
 
-        $data = Request::createFromGlobals()->get('form');
-        $userId = isset($data['id']) ? $data['id'] : Request::createFromGlobals()->get('id');
+        $data = $request->get('form');
+        $userId = isset($data['id']) ? $data['id'] : $request->get('id');
 
         if (!$userId) {
             throw new BadRequestHttpException('id must be specified!');
@@ -91,7 +97,7 @@ class UserController extends Controller
 
         $form = $formFactory->createBuilder()
             ->add('email', EmailType::class, ['data' => $user->getEmail()])
-            ->add('name', TextType::class, ['data' => $user->getName()])
+            ->add('name', TextType::class, ['data' => $user->getName(), 'attr' => ['minlength' => 3]])
             ->add('id', HiddenType::class, ['data' => $userId])
             ->getForm();
 
@@ -100,13 +106,27 @@ class UserController extends Controller
 
             $form->submit($data);
 
-            if (strlen($data['name']) < 3) {
-                $form->addError(new FormError('name is too short!'));
-            }
-
             if ($form->isValid()) {
                 $user->setEmail($data['email']);
                 $user->setName($data['name']);
+
+                $errors = $validator->validate($user);
+
+                if (count($errors) > 0) {
+                    foreach ($errors as $error) {
+                        $form->addError(new FormError($error->getMessage()));
+                    }
+
+                    $friendIds = [];
+
+                    foreach ($user->getFriends() as $friend) {
+                        $friendIds[] = $friend->getId();
+                    }
+
+                    $users = $this->getDoctrine()->getRepository(User::class)->findAll();
+
+                    return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => $friendIds, 'userId' => $userId]);
+                }
 
                 $statement = $entityManager->getConnection()->prepare('DELETE FROM `friends` WHERE user_id = :user_id OR friend_user_id = :user_id');
                 $statement->bindValue('user_id', $user->getId());
@@ -126,16 +146,6 @@ class UserController extends Controller
                 $entityManager->flush();
 
                 return $this->redirect('/');
-            } else {
-                $friendIds = [];
-
-                foreach ($user->getFriends() as $friend) {
-                    $friendIds[] = $friend->getId();
-                }
-
-                $users = $this->getDoctrine()->getRepository(User::class)->findAll();
-
-                return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => $friendIds, 'userId' => $userId]);
             }
         }
 
@@ -150,9 +160,9 @@ class UserController extends Controller
         return $this->render('view.twig', ['form' => $form->createView(), 'users' => $users, 'friends' => $friendIds, 'userId' => $userId]);
     }
 
-    public function delete()
+    public function delete(Request $request)
     {
-        $userId = Request::createFromGlobals()->get('id');
+        $userId = $request->get('id');
 
         if (!$userId) {
             throw new BadRequestHttpException('id must be specified!');
@@ -173,7 +183,6 @@ class UserController extends Controller
         $statement->execute();
 
         $entityManager->remove($user);
-
         $entityManager->flush();
 
         return $this->redirect('/');

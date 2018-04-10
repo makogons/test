@@ -11,12 +11,15 @@ use Doctrine\ORM\Mapping\GeneratedValue;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\JoinTable;
 use Doctrine\ORM\Mapping\JoinColumn;
+use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
+
+
 /** @Entity @Table(name="users")
- *  @ORM\Entity
- *  @UniqueEntity("email")
  *
+ * @ORM\Entity
+ * @UniqueEntity("email")
  */
 class User
 {
@@ -28,13 +31,23 @@ class User
     private $id;
 
     /**
-     * @var string $email
      * @ORM\Column(type="string", length=128, unique=true)
+     *
+     * @Assert\Email(
+     *     message = "The email '{{ value }}' is not a valid email.",
+     *     checkMX = true
+     * )
      */
+
     private $email;
 
     /**
      * @ORM\Column(type="string", length=255)
+     *
+     * @Assert\Length(
+     *     min = 3,
+     *     minMessage = "Your first name must be at least {{ limit }} characters long"
+     * )
      */
     private $name;
 
