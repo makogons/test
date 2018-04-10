@@ -12,3 +12,7 @@ create_user:
 edit_user:
     path: /edit
     controller: App\Controller\UserController::edit
+
+delete_user:
+    path: /delete
+    controller: App\Controller\UserController::delete
