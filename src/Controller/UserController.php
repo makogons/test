@@ -1,6 +1,9 @@
 <?php
 namespace App\Controller;
 
+use Doctrine\DBAL\Query\QueryBuilder;
+use Pagerfanta\Adapter\DoctrineDbalAdapter;
+use Pagerfanta\Pagerfanta;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use App\Entity\User;
 use Symfony\Component\Form\FormError;
@@ -16,11 +19,28 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $conn = $this->getDoctrine()->getManager()->getConnection();
+        $queryBuilder = new QueryBuilder($conn);
+        $queryBuilder->select('u.*')->from('users', 'u');
+
+        $countQueryBuilderModifier = function ($queryBuilder) {
+            $queryBuilder->select('COUNT(DISTINCT u.id) AS total_results')
+                ->setMaxResults(1);
+        };
+
+        $adapter = new DoctrineDbalAdapter($queryBuilder, $countQueryBuilderModifier);
+
+        $pagerfanta = new Pagerfanta($adapter);
+
+        $currentPage = $request->get('page', 1);
+
+        $pagerfanta->setMaxPerPage(2)->setCurrentPage($currentPage);
+
         $users = $this->getDoctrine()->getRepository(User::class)->findAll();
 
-        return $this->render('index.twig', ['users' => $users]);
+        return $this->render('index.twig', ['users' => $users, 'my_pager' => $pagerfanta]);
     }
 
     public function create(Request $request, ValidatorInterface $validator)
